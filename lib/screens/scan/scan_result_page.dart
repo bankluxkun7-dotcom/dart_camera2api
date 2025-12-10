@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/med_item.dart';
 import '../../repositories/med_repository.dart';
 import '../../services/history_service.dart';
@@ -14,6 +15,36 @@ class ScanResultPage extends StatelessWidget {
     this.imageFile,
     required this.detectedName,
   });
+
+  // หายาจาก Firestore
+  Future<MedItem?> _findFromFirestore() async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final medDoc = await firestore
+          .collection('medicines')
+          .doc(detectedName)
+          .get();
+      
+      if (!medDoc.exists) return null;
+      final data = medDoc.data() as Map<String, dynamic>;
+
+      //ถ้าไม่พบ imagePath ให้ไปหาจาก Excel แทน
+      String imagePath = data['imagePath'] ?? '';
+      if (imagePath.isEmpty) {
+        final excelMed = await _findFromExcel();
+        imagePath = excelMed?.imagePath ?? '';
+      }
+
+      return MedItem(
+        name: detectedName,
+        description: data['descriptions'] ?? '',
+        imagePath: imagePath,
+      );
+    } catch (e) {
+      print('Error searching Firestore: $e');
+    }
+    return null;
+  }
 
   Future<MedItem?> _findFromExcel() async {
     final repo = MedRepository();
@@ -39,6 +70,17 @@ class ScanResultPage extends StatelessWidget {
     );
   }
 
+  Future<MedItem?> _findMedicine() async {
+    // หาจาก Firestore ก่อน
+    final firestoreMed = await _findFromFirestore();
+    if (firestoreMed != null) {
+      return firestoreMed;
+    }
+
+    // ถ้าไม่เจอ ให้หาจาก Excel
+    return _findFromExcel();
+  }
+
   Future<void> _saveHistory(List<String> items) async {
     await HistoryStore.addRecord(items, imagePath: imageFile?.path);
   }
@@ -46,7 +88,7 @@ class ScanResultPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<MedItem?>(
-      future: _findFromExcel(),
+      future: _findMedicine(),
       builder: (context, snap) {
         if (!snap.hasData) {
           return const Scaffold(

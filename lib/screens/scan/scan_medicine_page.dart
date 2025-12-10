@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../../services/firebase_api.dart';
 import 'full_screen_camera_preview.dart';
 import '../../services/scan_api_service.dart';
 
@@ -68,7 +67,6 @@ class _ScanMedicinePageState extends State<ScanMedicinePage> {
   }
 
   Future<void> _goResult() async {
-    getMedicineWithBrands("Alfuzosin");
     if (_image == null) {
       _showSnackBar('โปรดถ่ายรูปหรือเลือกภาพยาก่อนดูผลลัพธ์');
       return;
