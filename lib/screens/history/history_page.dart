@@ -15,6 +15,8 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   late Future<List<HistoryRecord>> _future;
+  DateTime? _selectedDate;
+  List<HistoryRecord>? _allRecords;
 
   @override
   void initState() {
@@ -24,7 +26,10 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _refresh() async {
     _future = HistoryStore.load();
-    setState(() {});
+    setState(() {
+      _selectedDate = null;
+      _allRecords = null;
+    });
   }
 
   Future<void> _clearAll() async {
@@ -63,7 +68,7 @@ class _HistoryPageState extends State<HistoryPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F7938),
+        backgroundColor: const Color(0xFF112C63),
         elevation: 0,
         title: Text(
           'ประวัติการสแกน',
@@ -75,6 +80,25 @@ class _HistoryPageState extends State<HistoryPage> {
         ),
         centerTitle: true,
         actions: [
+          IconButton(
+            tooltip: 'เลือกวันที่',
+            icon: const Icon(Icons.date_range_rounded, color: Colors.white),
+            onPressed: () async {
+              final now = DateTime.now();
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: _selectedDate ?? now,
+                firstDate: DateTime(now.year - 5),
+                lastDate: DateTime(now.year + 1),
+                locale: const Locale('th', 'TH'),
+              );
+              if (picked != null) {
+                setState(() {
+                  _selectedDate = picked;
+                });
+              }
+            },
+          ),
           IconButton(
             tooltip: 'ลบทั้งหมด',
             onPressed: _clearAll,
@@ -90,7 +114,16 @@ class _HistoryPageState extends State<HistoryPage> {
                 child: CircularProgressIndicator(color: Color(0xFF10B981)));
           }
           final data = snap.data!;
-          if (data.isEmpty) {
+          _allRecords ??= data;
+          List<HistoryRecord> filtered = data;
+          if (_selectedDate != null) {
+            filtered = data.where((rec) {
+              return rec.time.year == _selectedDate!.year &&
+                  rec.time.month == _selectedDate!.month &&
+                  rec.time.day == _selectedDate!.day;
+            }).toList();
+          }
+          if (filtered.isEmpty) {
             return _buildEmptyState();
           }
           return RefreshIndicator(
@@ -98,9 +131,9 @@ class _HistoryPageState extends State<HistoryPage> {
             color: const Color(0xFF10B981),
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              itemCount: data.length,
+              itemCount: filtered.length,
               itemBuilder: (context, i) {
-                final rec = data[i];
+                final rec = filtered[i];
                 final timeText =
                     DateFormat('d MMM yyyy, HH:mm').format(rec.time);
                 return _buildHistoryItem(rec, timeText);
@@ -212,7 +245,8 @@ class _HistoryPageState extends State<HistoryPage> {
                           imageFile: rec.imagePath != null
                               ? File(rec.imagePath!)
                               : null,
-                          detectedName: rec.items.first,
+                          detectedNames: rec.items,
+                          isFromHistory: true,
                         ),
                       ),
                     );

@@ -10,8 +10,10 @@
 // • โปรไฟล์ผู้ใช้งานสามารถเปลี่ยนชื่อและเลือกรูปโปรไฟล์ได้ (local)
 
 import 'package:flutter/material.dart';
+
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/splash_screen.dart';
 
 Future<void> main() async {
@@ -28,6 +30,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'MyMedicine',
       debugShowCheckedModeBanner: false,
+      supportedLocales: const [
+        Locale('th', 'TH'),
+        Locale('en', 'US'),
+      ],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF06B6D4)),

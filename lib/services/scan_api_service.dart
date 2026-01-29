@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/scan/scan_result_page.dart';
 
 Future<Map<String, dynamic>> sendImageToApi(File image) async {
-  final uri = Uri.parse('http://example.api.com:8080/detect/');
+  final uri = Uri.parse('http://10.0.2.2:8080/detect/');
   final request = http.MultipartRequest('POST', uri);
   request.files.add(await http.MultipartFile.fromPath('file', image.path));
 
@@ -57,14 +57,17 @@ Future<void> sendImageAndShowResult({
         return;
       }
 
+      // เรียงลำดับการตรวจจับตามความมั่นใจจากมากไปน้อย
       detections.sort((a, b) {
         final na = (a['confidence'] ?? 0) as num;
         final nb = (b['confidence'] ?? 0) as num;
         return nb.compareTo(na);
       });
 
-      final top = detections.first as Map<String, dynamic>;
-      final className = (top['class'] ?? nameController.text.trim()).toString();
+      // ดึงชื่อที่ตรวจจับได้
+      final List<String> detectedNames = detections
+          .map((d) => (d['class'] ?? nameController.text.trim()).toString())
+          .toList();
 
       await _saveResultsToFirestore(body);
 
@@ -74,7 +77,7 @@ Future<void> sendImageAndShowResult({
           MaterialPageRoute(
             builder: (_) => ScanResultPage(
               imageFile: image,
-              detectedName: className,
+              detectedNames: detectedNames,
             ),
           ),
         );

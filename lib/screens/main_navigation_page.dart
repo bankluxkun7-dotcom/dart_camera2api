@@ -27,7 +27,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
       body: _pages[_current],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF0F7938),
+          color: const Color(0xFF0b5394),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.15),

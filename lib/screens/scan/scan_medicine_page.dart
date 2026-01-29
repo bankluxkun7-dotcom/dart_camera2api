@@ -83,7 +83,7 @@ class _ScanMedicinePageState extends State<ScanMedicinePage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F7938),
+        backgroundColor: const Color(0xFF112C63),
         elevation: 0,
         title: Text(
           'สแกนระบุชื่อยา',
@@ -100,7 +100,7 @@ class _ScanMedicinePageState extends State<ScanMedicinePage> {
           Container(
             height: 120,
             decoration: const BoxDecoration(
-              color: Color(0xFF0F7938),
+              color: Color(0xFF112C63),
               borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
             ),
           ),
