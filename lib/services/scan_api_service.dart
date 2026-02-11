@@ -21,6 +21,16 @@ Future<Map<String, dynamic>> sendImageToApi(File image) async {
   return body;
 }
 
+List<double> _parseBbox(dynamic value) {
+  final rawList = value is List ? value : const <dynamic>[];
+  final nums = rawList
+      .where((v) => v is num)
+      .map((v) => (v as num).toDouble())
+      .toList();
+  if (nums.length >= 4) return nums.take(4).toList();
+  return [...nums, ...List<double>.filled(4 - nums.length, 0.0)];
+}
+
 Future<void> _saveResultsToFirestore(Map<String, dynamic> data) async {
   try {
     final firestore = FirebaseFirestore.instance;
@@ -47,6 +57,8 @@ Future<void> sendImageAndShowResult({
   try {
     final body = await sendImageToApi(image);
 
+    print('findme: $body');
+
     final String status = body['status'] ?? '';
     if (status == 'success') {
       final List detections = (body['detection_data']?['detections'] ?? []) as List;
@@ -69,6 +81,10 @@ Future<void> sendImageAndShowResult({
           .map((d) => (d['class'] ?? nameController.text.trim()).toString())
           .toList();
 
+      final List<List<double>> detectedBboxes = detections
+          .map((d) => _parseBbox(d['bbox']))
+          .toList();
+
       await _saveResultsToFirestore(body);
 
       if (context.mounted) {
@@ -78,6 +94,7 @@ Future<void> sendImageAndShowResult({
             builder: (_) => ScanResultPage(
               imageFile: image,
               detectedNames: detectedNames,
+              detectedBboxes: detectedBboxes,
             ),
           ),
         );

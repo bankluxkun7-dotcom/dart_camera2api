@@ -71,6 +71,7 @@ class _ScanMedicinePageState extends State<ScanMedicinePage> {
       _showSnackBar('โปรดถ่ายรูปหรือเลือกภาพยาก่อนดูผลลัพธ์');
       return;
     }
+    
     await sendImageAndShowResult(
       context: context,
       image: _image!,

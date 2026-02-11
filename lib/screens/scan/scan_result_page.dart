@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,17 +8,17 @@ import '../../models/med_item.dart';
 import '../../repositories/med_repository.dart';
 import '../../services/history_service.dart';
 
-
-
 class ScanResultPage extends StatefulWidget {
   final File? imageFile;
   final List<String> detectedNames;
+  final List<List<double>> detectedBboxes;
   final bool isFromHistory;
 
   const ScanResultPage({
     super.key,
     this.imageFile,
     required this.detectedNames,
+    this.detectedBboxes = const [],
     this.isFromHistory = false,
   });
 
@@ -39,10 +41,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
   Future<MedItem?> _findFromFirestore(String name) async {
     try {
       final firestore = FirebaseFirestore.instance;
-      final medDoc = await firestore
-          .collection('medicines')
-          .doc(name)
-          .get();
+      final medDoc = await firestore.collection('medicines').doc(name).get();
 
       if (!medDoc.exists) return null;
       final data = medDoc.data() as Map<String, dynamic>;
@@ -69,7 +68,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
     final repo = MedRepository();
     final all = await repo.loadAll();
     return all.firstWhere(
-          (m) => m.name.toLowerCase() == name.toLowerCase(),
+      (m) => m.name.toLowerCase() == name.toLowerCase(),
       orElse: () {
         String sanitize(String x) {
           var s = x.trim();
@@ -101,6 +100,82 @@ class _ScanResultPageState extends State<ScanResultPage> {
 
   Future<void> _saveHistory(List<String> items) async {
     await HistoryStore.addRecord(items, imagePath: widget.imageFile?.path);
+  }
+
+  Widget croppedImageWidget(
+    File imageFile,
+    double outputSize,
+    List<double> bbox, {
+    double expandRatio = 1.0,
+  }) {
+    return FutureBuilder<ImageInfo>(
+      future: _getImageInfo(imageFile),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox.shrink();
+
+        final info = snapshot.data!;
+        final imgW = info.image.width.toDouble();
+        final imgH = info.image.height.toDouble();
+
+        final x1 = bbox[0].clamp(0, imgW);
+        final y1 = bbox[1].clamp(0, imgH);
+        final x2 = bbox[2].clamp(0, imgW);
+        final y2 = bbox[3].clamp(0, imgH);
+
+        final cropW = (x2 - x1).abs();
+        final cropH = (y2 - y1).abs();
+
+        final baseSize = math.max(cropW, cropH);
+        final squareSize = baseSize * expandRatio;
+
+        final centerX = x1 + cropW / 2;
+        final centerY = y1 + cropH / 2;
+
+        double newX1 = centerX - squareSize / 2;
+        double newY1 = centerY - squareSize / 2;
+
+        newX1 = newX1.clamp(0, imgW - squareSize);
+        newY1 = newY1.clamp(0, imgH - squareSize);
+
+        return SizedBox(
+          width: outputSize,
+          height: outputSize,
+          child: ClipRect(
+            child: FittedBox(
+              fit: BoxFit.cover,
+              alignment: Alignment.topLeft,
+              child: SizedBox(
+                width: squareSize,
+                height: squareSize,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: -newX1,
+                      top: -newY1,
+                      child: Image.file(
+                        imageFile,
+                        width: imgW,
+                        height: imgH,
+                        fit: BoxFit.none,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<ImageInfo> _getImageInfo(File file) async {
+    final completer = Completer<ImageInfo>();
+    final img = Image.file(file);
+    img.image.resolve(const ImageConfiguration()).addListener(
+          ImageStreamListener((info, _) => completer.complete(info)),
+        );
+    return completer.future;
   }
 
   @override
@@ -187,14 +262,18 @@ class _ScanResultPageState extends State<ScanResultPage> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
                           ),
                           icon: Icon(_selected.every((v) => v)
                               ? Icons.check_box
                               : Icons.check_box_outline_blank),
                           label: Text(
-                            _selected.every((v) => v) ? 'ยกเลิกเลือกทั้งหมด' : 'เลือกทั้งหมด',
-                            style: GoogleFonts.kanit(fontWeight: FontWeight.w500, fontSize: 15),
+                            _selected.every((v) => v)
+                                ? 'ยกเลิกเลือกทั้งหมด'
+                                : 'เลือกทั้งหมด',
+                            style: GoogleFonts.kanit(
+                                fontWeight: FontWeight.w500, fontSize: 15),
                           ),
                           onPressed: () {
                             setState(() {
@@ -213,23 +292,23 @@ class _ScanResultPageState extends State<ScanResultPage> {
                     onTap: widget.isFromHistory
                         ? null
                         : () {
-                      setState(() {
-                        _selected[i] = !_selected[i];
-                      });
-                    },
+                            setState(() {
+                              _selected[i] = !_selected[i];
+                            });
+                          },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
                         gradient: _selected[i]
                             ? const LinearGradient(
-                          colors: [
-                            Color(0xFFD1FAE5),
-                            Color(0xFFA7F3D0),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        )
+                                colors: [
+                                  Color(0xFFD1FAE5),
+                                  Color(0xFFA7F3D0),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
                             : null,
                         color: !_selected[i] ? Colors.white : null,
                         borderRadius: BorderRadius.circular(16),
@@ -255,28 +334,30 @@ class _ScanResultPageState extends State<ScanResultPage> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: widget.imageFile != null
-                                    ? Image.file(
-                                  widget.imageFile!,
-                                  width: 86,
-                                  height: 86,
-                                  fit: BoxFit.cover,
-                                )
+                                child: widget.imageFile != null &&
+                                        widget.detectedBboxes.length > i &&
+                                        widget.detectedBboxes[i].length == 4
+                                    ? croppedImageWidget(
+                                        widget.imageFile!,
+                                        72,
+                                        widget.detectedBboxes[i],
+                                      )
                                     : Image.asset(
-                                  meds[i].imagePath,
-                                  width: 86,
-                                  height: 86,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    width: 86,
-                                    height: 86,
-                                    color: const Color(0xFF10B981).withOpacity(.08),
-                                    child: const Icon(
-                                      Icons.image_not_supported,
-                                      color: Color(0xFF10B981),
-                                    ),
-                                  ),
-                                ),
+                                        meds[i].imagePath,
+                                        width: 72,
+                                        height: 72,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          width: 72,
+                                          height: 72,
+                                          color: const Color(0xFF10B981)
+                                              .withOpacity(.08),
+                                          child: const Icon(
+                                            Icons.image_not_supported,
+                                            color: Color(0xFF10B981),
+                                          ),
+                                        ),
+                                      ),
                               ),
                               const SizedBox(width: 14),
                               Expanded(
@@ -313,7 +394,8 @@ class _ScanResultPageState extends State<ScanResultPage> {
                                           decoration: BoxDecoration(
                                             color: const Color(0xFF10B981)
                                                 .withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                           ),
                                           child: Row(
                                             children: [
@@ -328,7 +410,8 @@ class _ScanResultPageState extends State<ScanResultPage> {
                                                 style: GoogleFonts.kanit(
                                                   fontSize: 11,
                                                   fontWeight: FontWeight.w600,
-                                                  color: const Color(0xFF059669),
+                                                  color:
+                                                      const Color(0xFF059669),
                                                 ),
                                               ),
                                             ],
@@ -350,7 +433,8 @@ class _ScanResultPageState extends State<ScanResultPage> {
                                   errorBuilder: (_, __, ___) => Container(
                                     width: 72,
                                     height: 72,
-                                    color: const Color(0xFF10B981).withOpacity(.08),
+                                    color: const Color(0xFF10B981)
+                                        .withOpacity(.08),
                                     child: const Icon(
                                       Icons.image_not_supported,
                                       color: Color(0xFF10B981),
@@ -413,77 +497,77 @@ class _ScanResultPageState extends State<ScanResultPage> {
           bottomNavigationBar: widget.isFromHistory
               ? null
               : Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF059669),
-                    Color(0xFF10B981),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF10B981).withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: FilledButton.icon(
-                onPressed: () async {
-                  final selectedNames = <String>[];
-                  for (int i = 0; i < meds.length; i++) {
-                    if (_selected[i]) selectedNames.add(meds[i].name);
-                  }
-                  if (selectedNames.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'กรุณาเลือกยาที่ต้องการบันทึก',
-                          style: GoogleFonts.kanit(),
-                        ),
-                        backgroundColor: Colors.red,
-                        duration: const Duration(seconds: 2),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF059669),
+                          Color(0xFF10B981),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    );
-                    return;
-                  }
-                  await _saveHistory(selectedNames);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'บันทึกลง History แล้ว',
-                          style: GoogleFonts.kanit(
-                            fontWeight: FontWeight.w500,
-                          ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withOpacity(0.4),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
                         ),
-                        backgroundColor: const Color(0xFF059669),
-                        duration: const Duration(seconds: 2),
+                      ],
+                    ),
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        final selectedNames = <String>[];
+                        for (int i = 0; i < meds.length; i++) {
+                          if (_selected[i]) selectedNames.add(meds[i].name);
+                        }
+                        if (selectedNames.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'กรุณาเลือกยาที่ต้องการบันทึก',
+                                style: GoogleFonts.kanit(),
+                              ),
+                              backgroundColor: Colors.red,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                          return;
+                        }
+                        await _saveHistory(selectedNames);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'บันทึกลง History แล้ว',
+                                style: GoogleFonts.kanit(
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              backgroundColor: const Color(0xFF059669),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.save_alt_rounded),
+                      label: Text(
+                        '',
+                        style: GoogleFonts.kanit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.save_alt_rounded),
-                label: Text(
-                  '',
-                  style: GoogleFonts.kanit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
                   ),
                 ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-            ),
-          ),
         );
       },
     );
