@@ -33,8 +33,8 @@ class _ScanResultPageState extends State<ScanResultPage> {
     _selected = List<bool>.filled(widget.detectedNames.length, true);
   }
 
-  bool get _allSelected => _selected.every((v) => v);
-  
+  // No longer needed: bool get _allSelected => _selected.every((v) => v);
+
   // หายาจาก Firestore
   Future<MedItem?> _findFromFirestore(String name) async {
     try {
@@ -135,223 +135,276 @@ class _ScanResultPageState extends State<ScanResultPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!widget.isFromHistory)
+                if (widget.imageFile != null) ...[
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      'รูปภาพที่ใช้ตรวจสอบ',
+                      style: GoogleFonts.kanit(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF1F2937),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Color(0xFF10B981), width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0xFF10B981).withOpacity(0.08),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(10),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          widget.imageFile!,
+                          width: 160,
+                          height: 160,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                if (!widget.isFromHistory)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
                     child: Row(
                       children: [
-                        Checkbox(
-                          value: _allSelected,
-                          tristate: false,
-                          onChanged: (val) {
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF10B981),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
+                          icon: Icon(_selected.every((v) => v)
+                              ? Icons.check_box
+                              : Icons.check_box_outline_blank),
+                          label: Text(
+                            _selected.every((v) => v) ? 'ยกเลิกเลือกทั้งหมด' : 'เลือกทั้งหมด',
+                            style: GoogleFonts.kanit(fontWeight: FontWeight.w500, fontSize: 15),
+                          ),
+                          onPressed: () {
                             setState(() {
-                              final v = val ?? false;
+                              final selectAll = !_selected.every((v) => v);
                               for (int i = 0; i < _selected.length; i++) {
-                                _selected[i] = v;
+                                _selected[i] = selectAll;
                               }
                             });
                           },
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'เลือกทั้งหมด',
-                          style: GoogleFonts.kanit(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 15,
-                          ),
                         ),
                       ],
                     ),
                   ),
                 for (int i = 0; i < meds.length; i++) ...[
-                  Row(
-                    children: [
-                      if (!widget.isFromHistory)
-                        Checkbox(
-                          value: _selected[i],
-                          onChanged: (val) {
-                            setState(() {
-                              _selected[i] = val ?? false;
-                            });
-                          },
+                  GestureDetector(
+                    onTap: widget.isFromHistory
+                        ? null
+                        : () {
+                      setState(() {
+                        _selected[i] = !_selected[i];
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        gradient: _selected[i]
+                            ? const LinearGradient(
+                          colors: [
+                            Color(0xFFD1FAE5),
+                            Color(0xFFA7F3D0),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                            : null,
+                        color: !_selected[i] ? Colors.white : null,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _selected[i]
+                              ? const Color(0xFF10B981).withOpacity(0.7)
+                              : const Color(0xFFE5E7EB),
+                          width: 2,
                         ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 0),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFD1FAE5),
-                                    Color(0xFFA7F3D0),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: const Color(0xFF10B981).withOpacity(0.3),
-                                  width: 1.5,
-                                ),
-                              ),
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: widget.imageFile != null
-                                        ? Image.file(
-                                      widget.imageFile!,
-                                      width: 86,
-                                      height: 86,
-                                      fit: BoxFit.cover,
-                                    )
-                                        : Image.asset(
-                                      meds[i].imagePath,
-                                      width: 86,
-                                      height: 86,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        width: 86,
-                                        height: 86,
-                                        color: const Color(0xFF10B981).withOpacity(.08),
-                                        child: const Icon(
-                                          Icons.image_not_supported,
-                                          color: Color(0xFF10B981),
-                                        ),
-                                      ),
+                        boxShadow: [
+                          if (_selected[i])
+                            BoxShadow(
+                              color: const Color(0xFF10B981).withOpacity(0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: widget.imageFile != null
+                                    ? Image.file(
+                                  widget.imageFile!,
+                                  width: 86,
+                                  height: 86,
+                                  fit: BoxFit.cover,
+                                )
+                                    : Image.asset(
+                                  meds[i].imagePath,
+                                  width: 86,
+                                  height: 86,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 86,
+                                    height: 86,
+                                    color: const Color(0xFF10B981).withOpacity(.08),
+                                    child: const Icon(
+                                      Icons.image_not_supported,
+                                      color: Color(0xFF10B981),
                                     ),
                                   ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'ระบุยาได้สำเร็จ',
+                                      style: GoogleFonts.kanit(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFF059669),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      meds[i].name,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.kanit(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF1F2937),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
                                       children: [
-                                        Text(
-                                          'ระบุยาได้สำเร็จ',
-                                          style: GoogleFonts.kanit(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                            color: const Color(0xFF059669),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
                                           ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          meds[i].name,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.kanit(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: const Color(0xFF1F2937),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981)
+                                                .withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(6),
                                           ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
+                                          child: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.verified_rounded,
+                                                size: 14,
+                                                color: Color(0xFF10B981),
                                               ),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF10B981)
-                                                    .withOpacity(0.15),
-                                                borderRadius: BorderRadius.circular(6),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                'ยืนยันแล้ว',
+                                                style: GoogleFonts.kanit(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: const Color(0xFF059669),
+                                                ),
                                               ),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(
-                                                    Icons.verified_rounded,
-                                                    size: 14,
-                                                    color: Color(0xFF10B981),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Text(
-                                                    'ยืนยันแล้ว',
-                                                    style: GoogleFonts.kanit(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: const Color(0xFF059669),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.asset(
-                                      meds[i].imagePath,
-                                      width: 72,
-                                      height: 72,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        width: 72,
-                                        height: 72,
-                                        color: const Color(0xFF10B981).withOpacity(.08),
-                                        child: const Icon(
-                                          Icons.image_not_supported,
-                                          color: Color(0xFF10B981),
-                                        ),
-                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.asset(
+                                  meds[i].imagePath,
+                                  width: 72,
+                                  height: 72,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    width: 72,
+                                    height: 72,
+                                    color: const Color(0xFF10B981).withOpacity(.08),
+                                    child: const Icon(
+                                      Icons.image_not_supported,
+                                      color: Color(0xFF10B981),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'สรรพคุณยา',
-                                style: GoogleFonts.kanit(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF1F2937),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              margin: const EdgeInsets.only(bottom: 24),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: const Color(0xFFE5E7EB),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Text(
-                                meds[i].description.isEmpty
-                                    ? 'ไม่มีข้อมูลสรรพคุณ'
-                                    : meds[i].description,
-                                style: GoogleFonts.kanit(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF374151),
-                                  height: 1.6,
-                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'สรรพคุณยา',
+                              style: GoogleFonts.kanit(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF1F2937),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            margin: const EdgeInsets.only(bottom: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.04),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              meds[i].description.isEmpty
+                                  ? 'ไม่มีข้อมูลสรรพคุณ'
+                                  : meds[i].description,
+                              style: GoogleFonts.kanit(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                color: const Color(0xFF374151),
+                                height: 1.6,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ],
@@ -360,77 +413,77 @@ class _ScanResultPageState extends State<ScanResultPage> {
           bottomNavigationBar: widget.isFromHistory
               ? null
               : Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF059669),
-                          Color(0xFF10B981),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withOpacity(0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFF059669),
+                    Color(0xFF10B981),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withOpacity(0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final selectedNames = <String>[];
+                  for (int i = 0; i < meds.length; i++) {
+                    if (_selected[i]) selectedNames.add(meds[i].name);
+                  }
+                  if (selectedNames.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'กรุณาเลือกยาที่ต้องการบันทึก',
+                          style: GoogleFonts.kanit(),
                         ),
-                      ],
-                    ),
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        final selectedNames = <String>[];
-                        for (int i = 0; i < meds.length; i++) {
-                          if (_selected[i]) selectedNames.add(meds[i].name);
-                        }
-                        if (selectedNames.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'กรุณาเลือกยาที่ต้องการบันทึก',
-                                style: GoogleFonts.kanit(),
-                              ),
-                              backgroundColor: Colors.red,
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                          return;
-                        }
-                        await _saveHistory(selectedNames);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'บันทึกลง History แล้ว',
-                                style: GoogleFonts.kanit(
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              backgroundColor: const Color(0xFF059669),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.save_alt_rounded),
-                      label: Text(
-                        '',
-                        style: GoogleFonts.kanit(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                        backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
+                  await _saveHistory(selectedNames);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'บันทึกลง History แล้ว',
+                          style: GoogleFonts.kanit(
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
+                        backgroundColor: const Color(0xFF059669),
+                        duration: const Duration(seconds: 2),
                       ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                    ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.save_alt_rounded),
+                label: Text(
+                  '',
+                  style: GoogleFonts.kanit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+            ),
+          ),
         );
       },
     );
