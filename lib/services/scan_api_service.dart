@@ -57,14 +57,12 @@ Future<void> sendImageAndShowResult({
   try {
     final body = await sendImageToApi(image);
 
-    print('findme: $body');
-
     final String status = body['status'] ?? '';
     if (status == 'success') {
       final List detections = (body['detection_data']?['detections'] ?? []) as List;
       if (detections.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ไม่พบการตรวจจับในภาพ')),
+          const SnackBar(content: Text('ตรวจไม่พบยาในภาพ')),
         );
         return;
       }
