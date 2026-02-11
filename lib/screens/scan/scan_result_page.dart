@@ -7,12 +7,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/med_item.dart';
 import '../../repositories/med_repository.dart';
 import '../../services/history_service.dart';
+import 'package:image/image.dart' as img;
+import 'package:path_provider/path_provider.dart';
 
 class ScanResultPage extends StatefulWidget {
   final File? imageFile;
   final List<String> detectedNames;
   final List<List<double>> detectedBboxes;
   final bool isFromHistory;
+  final List<String?>? cropImagePaths;
 
   const ScanResultPage({
     super.key,
@@ -20,6 +23,7 @@ class ScanResultPage extends StatefulWidget {
     required this.detectedNames,
     this.detectedBboxes = const [],
     this.isFromHistory = false,
+    this.cropImagePaths,
   });
 
   @override
@@ -35,8 +39,6 @@ class _ScanResultPageState extends State<ScanResultPage> {
     _selected = List<bool>.filled(widget.detectedNames.length, true);
   }
 
-  // No longer needed: bool get _allSelected => _selected.every((v) => v);
-
   // หายาจาก Firestore
   Future<MedItem?> _findFromFirestore(String name) async {
     try {
@@ -46,7 +48,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
       if (!medDoc.exists) return null;
       final data = medDoc.data() as Map<String, dynamic>;
 
-      //ถ้าไม่พบ imagePath ให้ไปหาจาก Excel แทน
+      // ถ้าไม่พบ imagePath ให้ไปหาจาก Excel แทน
       String imagePath = data['imagePath'] ?? '';
       if (imagePath.isEmpty) {
         final excelMed = await _findFromExcel(name);
@@ -98,8 +100,66 @@ class _ScanResultPageState extends State<ScanResultPage> {
     return meds;
   }
 
+  Future<String?> _cropAndSaveImage(File imageFile, List<double> bbox, String name, {double expandRatio = 1.0, int outputSize = 72}) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final original = img.decodeImage(bytes);
+      if (original == null) return null;
+
+      final imgW = original.width.toDouble();
+      final imgH = original.height.toDouble();
+      final x1 = bbox[0].clamp(0, imgW);
+      final y1 = bbox[1].clamp(0, imgH);
+      final x2 = bbox[2].clamp(0, imgW);
+      final y2 = bbox[3].clamp(0, imgH);
+
+      final cropW = (x2 - x1).abs();
+      final cropH = (y2 - y1).abs();
+      final baseSize = math.max(cropW, cropH);
+      final squareSize = baseSize * expandRatio;
+      final centerX = x1 + cropW / 2;
+      final centerY = y1 + cropH / 2;
+      double newX1 = centerX - squareSize / 2;
+      double newY1 = centerY - squareSize / 2;
+      newX1 = newX1.clamp(0, imgW - squareSize);
+      newY1 = newY1.clamp(0, imgH - squareSize);
+
+      final cropped = img.copyCrop(
+        original,
+        x: newX1.toInt(),
+        y: newY1.toInt(),
+        width: squareSize.toInt(),
+        height: squareSize.toInt(),
+      );
+      final resized = img.copyResize(cropped, width: outputSize, height: outputSize);
+      final dir = await getApplicationDocumentsDirectory();
+      final fileName = 'med_crop_${DateTime.now().millisecondsSinceEpoch}_$name.jpg';
+      final outPath = '${dir.path}/$fileName';
+      final outFile = File(outPath);
+      await outFile.writeAsBytes(img.encodeJpg(resized));
+      return outPath;
+    } catch (e) {
+      print('Crop error: $e');
+      return null;
+    }
+  }
+
   Future<void> _saveHistory(List<String> items) async {
-    await HistoryStore.addRecord(items, imagePath: widget.imageFile?.path);
+    List<String?> cropPaths = [];
+    if (widget.imageFile != null && widget.detectedBboxes.isNotEmpty) {
+      for (int i = 0; i < widget.detectedNames.length; i++) {
+        if (_selected[i]) {
+          final bbox = widget.detectedBboxes.length > i ? widget.detectedBboxes[i] : null;
+          if (bbox != null && bbox.length == 4) {
+            final path = await _cropAndSaveImage(widget.imageFile!, bbox, widget.detectedNames[i], expandRatio: 1.0, outputSize: 72);
+            cropPaths.add(path);
+          } else {
+            cropPaths.add(null);
+          }
+        }
+      }
+    }
+    await HistoryStore.addRecord(items, imagePath: widget.imageFile?.path, cropImagePaths: cropPaths);
   }
 
   Widget croppedImageWidget(
@@ -334,16 +394,9 @@ class _ScanResultPageState extends State<ScanResultPage> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: widget.imageFile != null &&
-                                        widget.detectedBboxes.length > i &&
-                                        widget.detectedBboxes[i].length == 4
-                                    ? croppedImageWidget(
-                                        widget.imageFile!,
-                                        72,
-                                        widget.detectedBboxes[i],
-                                      )
-                                    : Image.asset(
-                                        meds[i].imagePath,
+                                child: widget.isFromHistory && widget.cropImagePaths != null && widget.cropImagePaths!.length > i && widget.cropImagePaths![i] != null
+                                    ? Image.file(
+                                        File(widget.cropImagePaths![i]!),
                                         width: 72,
                                         height: 72,
                                         fit: BoxFit.cover,
@@ -357,7 +410,29 @@ class _ScanResultPageState extends State<ScanResultPage> {
                                             color: Color(0xFF10B981),
                                           ),
                                         ),
-                                      ),
+                                      )
+                                    : widget.imageFile != null && widget.detectedBboxes.length > i && widget.detectedBboxes[i].length == 4
+                                        ? croppedImageWidget(
+                                            widget.imageFile!,
+                                            72,
+                                            widget.detectedBboxes[i],
+                                          )
+                                        : Image.asset(
+                                            meds[i].imagePath,
+                                            width: 72,
+                                            height: 72,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => Container(
+                                              width: 72,
+                                              height: 72,
+                                              color: const Color(0xFF10B981)
+                                                  .withOpacity(.08),
+                                              child: const Icon(
+                                                Icons.image_not_supported,
+                                                color: Color(0xFF10B981),
+                                              ),
+                                            ),
+                                          ),
                               ),
                               const SizedBox(width: 14),
                               Expanded(

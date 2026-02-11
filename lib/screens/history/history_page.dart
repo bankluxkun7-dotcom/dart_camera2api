@@ -247,6 +247,7 @@ class _HistoryPageState extends State<HistoryPage> {
                               : null,
                           detectedNames: rec.items,
                           isFromHistory: true,
+                          cropImagePaths: rec.cropImagePaths,
                         ),
                       ),
                     );
