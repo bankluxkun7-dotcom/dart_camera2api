@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/scan/scan_result_page.dart';
 
 Future<Map<String, dynamic>> sendImageToApi(File image) async {
-  final uri = Uri.parse('http://192.168.1.183:8080/detect/');
+  final uri = Uri.parse('http://192.168.1.110:8080/detect/');
   final request = http.MultipartRequest('POST', uri);
   request.files.add(await http.MultipartFile.fromPath('file', image.path));
 

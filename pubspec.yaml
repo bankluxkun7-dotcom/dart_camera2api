@@ -38,9 +38,6 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/images/pills/paracetamol.jpg
-    - assets/images/pills/Aspirin.jpg
-    - assets/images/pills/Amoxicillin.jpg
     - assets/data/meds.xlsm
     - assets/images/amldac/
 

@@ -135,7 +135,7 @@ class _HistoryPageState extends State<HistoryPage> {
               itemBuilder: (context, i) {
                 final rec = filtered[i];
                 final timeText =
-                    DateFormat('d MMM yyyy, HH:mm').format(rec.time);
+                DateFormat('d MMM yyyy, HH:mm').format(rec.time);
                 return _buildHistoryItem(rec, timeText);
               },
             ),
@@ -260,15 +260,15 @@ class _HistoryPageState extends State<HistoryPage> {
                       children: [
                         rec.imagePath != null
                             ? ClipOval(
-                                child: Image.file(
-                                  File(rec.imagePath!),
-                                  width: 52,
-                                  height: 52,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      _buildCountCircle(rec.items.length),
-                                ),
-                              )
+                          child: Image.file(
+                            File(rec.imagePath!),
+                            width: 52,
+                            height: 52,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _buildCountCircle(rec.items.length),
+                          ),
+                        )
                             : _buildCountCircle(rec.items.length),
                         const SizedBox(width: 16),
                         Expanded(
