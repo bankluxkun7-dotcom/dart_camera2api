@@ -38,7 +38,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
   void initState() {
     super.initState();
     _selected = List<bool>.filled(widget.detectedNames.length, true);
-    _isExpanded = List<bool>.filled(widget.detectedNames.length, true);
+    _isExpanded = List<bool>.filled(widget.detectedNames.length, false);
   }
 
   // ================= FIRESTORE =================
@@ -381,6 +381,15 @@ class _ScanResultPageState extends State<ScanResultPage> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                   ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              ClipRRect(
+                                child: Image.asset(
+                                  meds[i].imagePath,
+                                  width: 72,
+                                  height: 72,
+                                  fit: BoxFit.cover,
                                 ),
                               ),
                             ],
