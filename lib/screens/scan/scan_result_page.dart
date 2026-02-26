@@ -16,6 +16,7 @@ class ScanResultPage extends StatefulWidget {
   final List<List<double>> detectedBboxes;
   final bool isFromHistory;
   final List<String?>? cropImagePaths;
+  final bool autosave;
 
   const ScanResultPage({
     super.key,
@@ -24,6 +25,7 @@ class ScanResultPage extends StatefulWidget {
     this.detectedBboxes = const [],
     this.isFromHistory = false,
     this.cropImagePaths,
+    this.autosave = true, //แก้ตรงนี้เพื่อเปิด/ปิดการบันทึกอัตโนมัติในประวัติ true = บันทึกอัตโนมัติ, false = ไม่บันทึกอัตโนมัติ
   });
 
   @override
@@ -31,6 +33,7 @@ class ScanResultPage extends StatefulWidget {
 }
 
 class _ScanResultPageState extends State<ScanResultPage> {
+    bool _historySaved = false;
   late List<bool> _selected;
   late List<bool> _isExpanded;
 
@@ -39,6 +42,34 @@ class _ScanResultPageState extends State<ScanResultPage> {
     super.initState();
     _selected = List<bool>.filled(widget.detectedNames.length, true);
     _isExpanded = List<bool>.filled(widget.detectedNames.length, false);
+    if (widget.autosave && !widget.isFromHistory && widget.detectedNames.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!_historySaved) {
+          final meds = await _findMedicines();
+          final selectedNames = <String>[];
+          for (int i = 0; i < meds.length; i++) {
+            if (_selected[i]) {
+              selectedNames.add(meds[i].name);
+            }
+          }
+          if (selectedNames.isNotEmpty) {
+            await _saveHistory(selectedNames);
+            if (mounted) {
+              setState(() => _historySaved = true);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'บันทึกลง History แล้ว',
+                    style: GoogleFonts.kanit(),
+                  ),
+                  backgroundColor: const Color(0xFF059669),
+                ),
+              );
+            }
+          }
+        }
+      });
+    }
   }
 
   // ================= FIRESTORE =================
@@ -72,7 +103,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
     final repo = MedRepository();
     final all = await repo.loadAll();
     return all.firstWhere(
-          (m) => m.name.toLowerCase() == name.toLowerCase(),
+      (m) => m.name.toLowerCase() == name.toLowerCase(),
       orElse: () {
         String sanitize(String x) {
           var s = x.trim();
@@ -105,12 +136,12 @@ class _ScanResultPageState extends State<ScanResultPage> {
   // ================= CROP =================
 
   Future<String?> _cropAndSaveImage(
-      File imageFile,
-      List<double> bbox,
-      String name, {
-        double expandRatio = 1.0,
-        int outputSize = 72,
-      }) async {
+    File imageFile,
+    List<double> bbox,
+    String name, {
+    double expandRatio = 1.0,
+    int outputSize = 72,
+  }) async {
     try {
       final bytes = await imageFile.readAsBytes();
       final original = img.decodeImage(bytes);
@@ -145,7 +176,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
       );
 
       final resized =
-      img.copyResize(cropped, width: outputSize, height: outputSize);
+          img.copyResize(cropped, width: outputSize, height: outputSize);
 
       final dir = await getApplicationDocumentsDirectory();
       final fileName =
@@ -167,8 +198,9 @@ class _ScanResultPageState extends State<ScanResultPage> {
     if (widget.imageFile != null && widget.detectedBboxes.isNotEmpty) {
       for (int i = 0; i < widget.detectedNames.length; i++) {
         if (_selected[i]) {
-          final bbox =
-          widget.detectedBboxes.length > i ? widget.detectedBboxes[i] : null;
+          final bbox = widget.detectedBboxes.length > i
+              ? widget.detectedBboxes[i]
+              : null;
 
           if (bbox != null && bbox.length == 4) {
             final path = await _cropAndSaveImage(
@@ -198,17 +230,17 @@ class _ScanResultPageState extends State<ScanResultPage> {
     final imgWidget = Image.file(file);
 
     imgWidget.image.resolve(const ImageConfiguration()).addListener(
-      ImageStreamListener((info, _) => completer.complete(info)),
-    );
+          ImageStreamListener((info, _) => completer.complete(info)),
+        );
 
     return completer.future;
   }
 
   Widget croppedImageWidget(
-      File imageFile,
-      double outputSize,
-      List<double> bbox,
-      ) {
+    File imageFile,
+    double outputSize,
+    List<double> bbox,
+  ) {
     return FutureBuilder<ImageInfo>(
       future: _getImageInfo(imageFile),
       builder: (context, snapshot) {
@@ -334,7 +366,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
                   const SizedBox(height: 16),
                 ],
                 // โค๊ดปุ่มยกเลิกเลือกทั้งหมด สามารถปรับแต่งตรงนี้ได้เลย ถ้าไม่ใช่ก็ลบออกได้เลย
-                if (!widget.isFromHistory)
+                if (!widget.isFromHistory && !widget.autosave)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12.0),
                     child: Row(
@@ -371,7 +403,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
                       ],
                     ),
                   ),
-                  // โค๊ดปุ่มถึงตรงนี้
+                // โค๊ดปุ่มถึงตรงนี้
 
                 // ===== LIST =====
 
@@ -380,8 +412,8 @@ class _ScanResultPageState extends State<ScanResultPage> {
                     onTap: widget.isFromHistory
                         ? null
                         : () {
-                      setState(() => _selected[i] = !_selected[i]);
-                    },
+                            setState(() => _selected[i] = !_selected[i]);
+                          },
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       padding: const EdgeInsets.all(16),
@@ -399,18 +431,31 @@ class _ScanResultPageState extends State<ScanResultPage> {
                         children: [
                           Row(
                             children: [
-                              widget.imageFile != null &&
-                                  widget.detectedBboxes.length > i
-                                  ? croppedImageWidget(
-                                widget.imageFile!,
-                                72,
-                                widget.detectedBboxes[i],
-                              )
-                                  : Image.asset(
-                                meds[i].imagePath,
-                                width: 72,
-                                height: 72,
-                                fit: BoxFit.cover,
+                              ClipRRect(
+                                child: widget.isFromHistory &&
+                                        widget.cropImagePaths != null &&
+                                        widget.cropImagePaths!.length > i &&
+                                        widget.cropImagePaths![i] != null
+                                    ? Image.file(
+                                        File(widget.cropImagePaths![i]!),
+                                        width: 72,
+                                        height: 72,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : widget.imageFile != null &&
+                                            widget.detectedBboxes.length > i &&
+                                            widget.detectedBboxes[i].length == 4
+                                        ? croppedImageWidget(
+                                            widget.imageFile!,
+                                            72,
+                                            widget.detectedBboxes[i],
+                                          )
+                                        : Image.asset(
+                                            meds[i].imagePath,
+                                            width: 72,
+                                            height: 72,
+                                            fit: BoxFit.cover,
+                                          ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -439,8 +484,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
                           // ===== EXPAND BUTTON =====
 
                           Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment.spaceBetween,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'สรรพคุณยา',
@@ -473,8 +517,8 @@ class _ScanResultPageState extends State<ScanResultPage> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: const Color(0xFFE5E7EB)),
+                                border:
+                                    Border.all(color: const Color(0xFFE5E7EB)),
                               ),
                               child: Text(
                                 meds[i].description.isEmpty
@@ -502,49 +546,46 @@ class _ScanResultPageState extends State<ScanResultPage> {
 
           bottomNavigationBar: widget.isFromHistory
               ? null
-              : Padding(
-            padding:
-            const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            child: FilledButton.icon(
-              onPressed: () async {
-                final selectedNames = <String>[];
-                for (int i = 0; i < meds.length; i++) {
-                  if (_selected[i]) {
-                    selectedNames.add(meds[i].name);
-                  }
-                }
+              : (widget.autosave ? null : Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      final selectedNames = <String>[];
+                      for (int i = 0; i < meds.length; i++) {
+                        if (_selected[i]) {
+                          selectedNames.add(meds[i].name);
+                        }
+                      }
 
-                if (selectedNames.isEmpty) return;
+                      if (selectedNames.isEmpty) return;
 
-                await _saveHistory(selectedNames);
+                      await _saveHistory(selectedNames);
 
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'บันทึกลง History แล้ว',
-                        style: GoogleFonts.kanit(),
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'บันทึกลง History แล้ว',
+                              style: GoogleFonts.kanit(),
+                            ),
+                            backgroundColor: const Color(0xFF059669),
+                          ),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.save_alt_rounded),
+                    label: Text(
+                      'บันทึก History',
+                      style: GoogleFonts.kanit(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
-                      backgroundColor:
-                      const Color(0xFF059669),
                     ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.save_alt_rounded),
-              label: Text(
-                'บันทึก History',
-                style: GoogleFonts.kanit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: FilledButton.styleFrom(
-                padding:
-                const EdgeInsets.symmetric(vertical: 16),
-              ),
-            ),
-          ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                )),
         );
       },
     );

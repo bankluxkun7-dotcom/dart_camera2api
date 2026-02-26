@@ -89,7 +89,7 @@ Future<void> sendImageAndShowResult({
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => ScanResultPage(
+            builder: (_) => ScanResultPage( //ถ้าจะทดสอบแสดงกรอบพร้อมชื่อยาให้แก้เป็น TestOverlay
               imageFile: image,
               detectedNames: detectedNames,
               detectedBboxes: detectedBboxes,
