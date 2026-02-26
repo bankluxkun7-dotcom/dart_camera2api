@@ -33,12 +33,42 @@ class ScanResultPage extends StatefulWidget {
 class _ScanResultPageState extends State<ScanResultPage> {
   late List<bool> _selected;
   late List<bool> _isExpanded;
+  bool _historySaved = false;
 
   @override
   void initState() {
     super.initState();
     _selected = List<bool>.filled(widget.detectedNames.length, true);
     _isExpanded = List<bool>.filled(widget.detectedNames.length, false);
+    // บันทึกอัตโนมัติเมื่อเปิดหน้า (เฉพาะไม่ใช่ history)
+    if (!widget.isFromHistory && widget.detectedNames.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!_historySaved) {
+          final meds = await _findMedicines();
+          final selectedNames = <String>[];
+          for (int i = 0; i < meds.length; i++) {
+            if (_selected[i]) {
+              selectedNames.add(meds[i].name);
+            }
+          }
+          if (selectedNames.isNotEmpty) {
+            await _saveHistory(selectedNames);
+            if (mounted) {
+              setState(() => _historySaved = true);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'บันทึกลง History แล้ว',
+                    style: GoogleFonts.kanit(),
+                  ),
+                  backgroundColor: const Color(0xFF059669),
+                ),
+              );
+            }
+          }
+        }
+      });
+    }
   }
 
   // ================= FIRESTORE =================
@@ -333,45 +363,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
                   ),
                   const SizedBox(height: 16),
                 ],
-                // โค๊ดปุ่มยกเลิกเลือกทั้งหมด สามารถปรับแต่งตรงนี้ได้เลย ถ้าไม่ใช่ก็ลบออกได้เลย
-                if (!widget.isFromHistory)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12.0),
-                    child: Row(
-                      children: [
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                          ),
-                          icon: Icon(_selected.every((v) => v)
-                              ? Icons.check_box
-                              : Icons.check_box_outline_blank),
-                          label: Text(
-                            _selected.every((v) => v)
-                                ? 'ยกเลิกเลือกทั้งหมด'
-                                : 'เลือกทั้งหมด',
-                            style: GoogleFonts.kanit(
-                                fontWeight: FontWeight.w500, fontSize: 15),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              final selectAll = !_selected.every((v) => v);
-                              for (int i = 0; i < _selected.length; i++) {
-                                _selected[i] = selectAll;
-                              }
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  // โค๊ดปุ่มถึงตรงนี้
+                // ...existing code...
 
                 // ===== LIST =====
 
@@ -502,49 +494,7 @@ class _ScanResultPageState extends State<ScanResultPage> {
 
           bottomNavigationBar: widget.isFromHistory
               ? null
-              : Padding(
-            padding:
-            const EdgeInsets.fromLTRB(16, 12, 16, 20),
-            child: FilledButton.icon(
-              onPressed: () async {
-                final selectedNames = <String>[];
-                for (int i = 0; i < meds.length; i++) {
-                  if (_selected[i]) {
-                    selectedNames.add(meds[i].name);
-                  }
-                }
-
-                if (selectedNames.isEmpty) return;
-
-                await _saveHistory(selectedNames);
-
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'บันทึกลง History แล้ว',
-                        style: GoogleFonts.kanit(),
-                      ),
-                      backgroundColor:
-                      const Color(0xFF059669),
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.save_alt_rounded),
-              label: Text(
-                'บันทึก History',
-                style: GoogleFonts.kanit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: FilledButton.styleFrom(
-                padding:
-                const EdgeInsets.symmetric(vertical: 16),
-              ),
-            ),
-          ),
+              : null,
         );
       },
     );

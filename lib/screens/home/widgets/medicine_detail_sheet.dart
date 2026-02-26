@@ -70,16 +70,22 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(
-                      widget.item.imagePath,
-                      fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Container(
+                    child: Container(
+                      color: const Color(0xFFF3F4F6),
+                      child: Image.asset(
+                        widget.item.imagePath,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
                         alignment: Alignment.center,
-                        color: const Color(0xFF10B981).withOpacity(.08),
-                        child: const Icon(
-                          Icons.image_not_supported,
-                          size: 64,
-                          color: Color(0xFF10B981),
+                        errorBuilder: (_, __, ___) => Container(
+                          alignment: Alignment.center,
+                          color: const Color(0xFF10B981).withOpacity(.08),
+                          child: const Icon(
+                            Icons.image_not_supported,
+                            size: 64,
+                            color: Color(0xFF10B981),
+                          ),
                         ),
                       ),
                     ),

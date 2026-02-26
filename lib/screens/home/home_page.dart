@@ -261,11 +261,17 @@ class _HomePageState extends State<HomePage> {
                                 child: Center(
                                   child: ClipRRect(
                                     borderRadius: const BorderRadius.vertical(top: Radius.circular(19)),
-                                    child: Image.asset(
-                                      m.imagePath,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (_, __, ___) => const Center(
-                                        child: Icon(Icons.eco_outlined, color: Color(0xFF10B981), size: 32),
+                                    child: Container(
+                                      color: const Color(0xFFF8FAFC),
+                                      child: Image.asset(
+                                        m.imagePath,
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        alignment: Alignment.center,
+                                        errorBuilder: (_, __, ___) => const Center(
+                                          child: Icon(Icons.eco_outlined, color: Color(0xFF10B981), size: 32),
+                                        ),
                                       ),
                                     ),
                                   ),
