@@ -1,0 +1,9 @@
+ultralytics
+fastapi
+uvicorn
+python-multipart
+matplotlib
+numpy
+opencv-python-headless
+google-cloud-storage
+firebase_admin
