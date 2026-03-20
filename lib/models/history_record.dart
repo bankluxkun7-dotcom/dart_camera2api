@@ -1,4 +1,3 @@
-/// โมเดลการบันทึกประวัติการสแกนยา
 class HistoryRecord {
   final DateTime time;
   final List<String> items;

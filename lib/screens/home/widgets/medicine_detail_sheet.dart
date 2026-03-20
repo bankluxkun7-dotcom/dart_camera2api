@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../../../models/med_item.dart';
 
 class MedDetailSheet extends StatefulWidget {
-  final MedItem item;
-
   const MedDetailSheet({
     super.key,
     required this.item,
   });
+
+  final MedItem item;
 
   @override
   State<MedDetailSheet> createState() => _MedDetailSheetState();
 }
 
 class _MedDetailSheetState extends State<MedDetailSheet> {
-  final _tts = FlutterTts();
+  final FlutterTts _tts = FlutterTts();
   bool _speaking = false;
 
   Future<void> _speak() async {
@@ -25,18 +26,19 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
       setState(() => _speaking = false);
       return;
     }
+
     await _tts.setLanguage('th-TH');
     await _tts.setSpeechRate(0.47);
     await _tts.setPitch(1.0);
-    final text =
-        '${widget.item.name}. ${widget.item.description.isEmpty ? "ไม่มีสรรพคุณ" : widget.item.description}';
-    setState(() => _speaking = true);
-    
-    // ตั้ง callback เมื่อจบการอ่าน
     _tts.setCompletionHandler(() {
+      if (!mounted) return;
       setState(() => _speaking = false);
     });
-    
+
+    final text =
+        '${widget.item.name}. ${widget.item.description.isEmpty ? "ไม่มีสรรพคุณ" : widget.item.description}';
+
+    setState(() => _speaking = true);
     await _tts.speak(text);
   }
 
@@ -52,8 +54,8 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
-        bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
         top: 8,
+        bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -70,22 +72,20 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      color: const Color(0xFFF3F4F6),
-                      child: Image.asset(
-                        widget.item.imagePath,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
+                    child: Image.asset(
+                      widget.item.imagePath,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
+                      cacheWidth: 800,
+                      cacheHeight: 800,
+                      errorBuilder: (_, __, ___) => Container(
                         alignment: Alignment.center,
-                        errorBuilder: (_, __, ___) => Container(
-                          alignment: Alignment.center,
-                          color: const Color(0xFF10B981).withOpacity(.08),
-                          child: const Icon(
-                            Icons.image_not_supported,
-                            size: 64,
-                            color: Color(0xFF10B981),
-                          ),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                        child: const Icon(
+                          Icons.image_not_supported,
+                          size: 64,
+                          color: Color(0xFF10B981),
                         ),
                       ),
                     ),
@@ -100,7 +100,7 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
+                          color: Colors.black.withValues(alpha: 0.15),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -112,11 +112,6 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
                         Icons.close_rounded,
                         color: Color(0xFF10B981),
                       ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 44,
-                        minHeight: 44,
-                      ),
                     ),
                   ),
                 ),
@@ -124,14 +119,14 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
             ),
             const SizedBox(height: 16),
             Container(
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withOpacity(0.08),
+                color: const Color(0xFF10B981).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF10B981).withOpacity(0.2),
+                  color: const Color(0xFF10B981).withValues(alpha: 0.2),
                 ),
               ),
-              padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
                   Container(
@@ -189,9 +184,7 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
               decoration: BoxDecoration(
                 color: const Color(0xFFF3F4F6),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFE5E7EB),
-                ),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
               child: Text(
                 widget.item.description.isEmpty
@@ -206,50 +199,39 @@ class _MedDetailSheetState extends State<MedDetailSheet> {
               ),
             ),
             const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF059669),
-                          Color(0xFF10B981),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF10B981).withOpacity(0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: FilledButton.icon(
-                      onPressed: _speak,
-                      icon: Icon(
-                        _speaking
-                            ? Icons.stop_circle_rounded
-                            : Icons.volume_up_rounded,
-                      ),
-                      label: Text(
-                        _speaking ? 'หยุดอ่าน' : 'อ่านออกเสียง',
-                        style: GoogleFonts.kanit(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF059669), Color(0xFF10B981)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF10B981).withValues(alpha: 0.4),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: FilledButton.icon(
+                onPressed: _speak,
+                icon: Icon(
+                  _speaking
+                      ? Icons.stop_circle_rounded
+                      : Icons.volume_up_rounded,
+                ),
+                label: Text(
+                  _speaking ? 'หยุดอ่าน' : 'อ่านออกเสียง',
+                  style: GoogleFonts.kanit(fontWeight: FontWeight.w600),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
             const SizedBox(height: 12),
           ],

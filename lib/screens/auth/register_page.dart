@@ -3,34 +3,44 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterPage extends StatefulWidget {
-  final VoidCallback onRegistered;
-
   const RegisterPage({
     super.key,
     required this.onRegistered,
   });
+
+  final VoidCallback onRegistered;
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
-  final _pw = TextEditingController();
-  final _pw2 = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   Future<void> _register() async {
-    if (_formKey.currentState!.validate()) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_email', _email.text.trim());
-      await prefs.setString('user_password', _pw.text);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ลงทะเบียนสำเร็จ!')),
-      );
-      widget.onRegistered();
-    }
+    if (!_formKey.currentState!.validate()) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_email', _emailController.text.trim());
+    await prefs.setString('user_password', _passwordController.text);
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('ลงทะเบียนสำเร็จ!')),
+    );
+    widget.onRegistered();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -47,7 +57,7 @@ class _RegisterPageState extends State<RegisterPage> {
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -59,13 +69,13 @@ class _RegisterPageState extends State<RegisterPage> {
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
           SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 children: [
                   const SizedBox(height: 40),
@@ -76,7 +86,6 @@ class _RegisterPageState extends State<RegisterPage> {
                         icon: const Icon(
                           Icons.arrow_back_rounded,
                           color: Colors.white,
-                          size: 24,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -92,7 +101,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 12),
                   Padding(
-                    padding: const EdgeInsets.only(left: 56.0),
+                    padding: const EdgeInsets.only(left: 56),
                     child: Text(
                       'สร้างบัญชีของคุณเพื่อเริ่มต้น',
                       style: GoogleFonts.kanit(
@@ -104,140 +113,67 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 32),
                   Container(
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
+                          color: Colors.black.withValues(alpha: 0.15),
                           blurRadius: 20,
                           offset: const Offset(0, 10),
                         ),
                       ],
                     ),
-                    padding: const EdgeInsets.all(24),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         children: [
-                          TextFormField(
-                            controller: _email,
-                            decoration: InputDecoration(
-                              labelText: 'อีเมล',
-                              hintText: 'กรุณากรอกอีเมลของคุณ',
-                              prefixIcon: const Icon(
-                                Icons.email_rounded,
-                                color: Color(0xFF10B981),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF10B981),
-                                  width: 2,
-                                ),
-                              ),
-                              fillColor: const Color(0xFFF3F4F6),
-                              filled: true,
-                              labelStyle: GoogleFonts.kanit(
-                                color: const Color(0xFF6B7280),
-                              ),
-                            ),
-                            validator: (v) =>
-                                (v == null || v.isEmpty)
-                                    ? 'กรุณากรอกอีเมล'
-                                    : null,
+                          _RegisterTextField(
+                            controller: _emailController,
+                            labelText: 'อีเมล',
+                            hintText: 'กรุณากรอกอีเมลของคุณ',
+                            icon: Icons.email_rounded,
+                            validator: (value) => (value == null || value.isEmpty)
+                                ? 'กรุณากรอกอีเมล'
+                                : null,
                           ),
                           const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _pw,
+                          _RegisterTextField(
+                            controller: _passwordController,
+                            labelText: 'รหัสผ่าน',
+                            hintText: 'กรุณากรอกรหัสผ่านของคุณ',
+                            icon: Icons.lock_rounded,
                             obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: 'รหัสผ่าน',
-                              hintText: 'กรุณากรอกรหัสผ่านของคุณ',
-                              prefixIcon: const Icon(
-                                Icons.lock_rounded,
-                                color: Color(0xFF10B981),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF10B981),
-                                  width: 2,
-                                ),
-                              ),
-                              fillColor: const Color(0xFFF3F4F6),
-                              filled: true,
-                              labelStyle: GoogleFonts.kanit(
-                                color: const Color(0xFF6B7280),
-                              ),
-                            ),
-                            validator: (v) =>
-                                (v == null || v.isEmpty)
-                                    ? 'กรุณากรอกรหัสผ่าน'
-                                    : null,
+                            validator: (value) => (value == null || value.isEmpty)
+                                ? 'กรุณากรอกรหัสผ่าน'
+                                : null,
                           ),
                           const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _pw2,
+                          _RegisterTextField(
+                            controller: _confirmPasswordController,
+                            labelText: 'ยืนยันรหัสผ่าน',
+                            hintText: 'กรุณากรอกรหัสผ่านอีกครั้ง',
+                            icon: Icons.lock_outline_rounded,
                             obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: 'ยืนยันรหัสผ่าน',
-                              hintText: 'กรุณากรอกรหัสผ่านอีกครั้ง',
-                              prefixIcon: const Icon(
-                                Icons.lock_outline_rounded,
-                                color: Color(0xFF10B981),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFF10B981),
-                                  width: 2,
-                                ),
-                              ),
-                              fillColor: const Color(0xFFF3F4F6),
-                              filled: true,
-                              labelStyle: GoogleFonts.kanit(
-                                color: const Color(0xFF6B7280),
-                              ),
-                            ),
-                            validator: (v) =>
-                                v != _pw.text ? 'รหัสผ่านไม่ตรงกัน' : null,
+                            validator: (value) => value != _passwordController.text
+                                ? 'รหัสผ่านไม่ตรงกัน'
+                                : null,
                           ),
                           const SizedBox(height: 24),
                           Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [
-                                  Color(0xFF059669),
-                                  Color(0xFF10B981),
-                                ],
+                                colors: [Color(0xFF059669), Color(0xFF10B981)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(12),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF10B981)
-                                      .withOpacity(0.4),
+                                  color:
+                                      const Color(0xFF10B981).withValues(alpha: 0.4),
                                   blurRadius: 12,
                                   offset: const Offset(0, 4),
                                 ),
@@ -256,8 +192,7 @@ class _RegisterPageState extends State<RegisterPage> {
                               style: FilledButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
                               ),
                             ),
                           ),
@@ -296,12 +231,50 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     );
   }
+}
+
+class _RegisterTextField extends StatelessWidget {
+  const _RegisterTextField({
+    required this.controller,
+    required this.labelText,
+    required this.hintText,
+    required this.icon,
+    required this.validator,
+    this.obscureText = false,
+  });
+
+  final TextEditingController controller;
+  final String labelText;
+  final String hintText;
+  final IconData icon;
+  final String? Function(String?) validator;
+  final bool obscureText;
 
   @override
-  void dispose() {
-    _email.dispose();
-    _pw.dispose();
-    _pw2.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: labelText,
+        hintText: hintText,
+        prefixIcon: Icon(icon, color: const Color(0xFF10B981)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: Color(0xFF10B981),
+            width: 2,
+          ),
+        ),
+        fillColor: const Color(0xFFF3F4F6),
+        filled: true,
+        labelStyle: GoogleFonts.kanit(color: const Color(0xFF6B7280)),
+      ),
+    );
   }
 }

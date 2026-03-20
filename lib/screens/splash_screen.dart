@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../services/app_preload_service.dart';
 import 'auth/login_page.dart';
 import 'auth/register_page.dart';
 
@@ -14,26 +16,33 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (loginCtx) => LoginPage(
-            onRegisterClicked: () {
-              Navigator.push(
-                loginCtx,
-                MaterialPageRoute(
-                  builder: (regCtx) => RegisterPage(
-                    onRegistered: () => Navigator.pop(regCtx),
-                  ),
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await Future.wait<void>([
+      Future<void>.delayed(const Duration(seconds: 2)),
+      AppPreloadService.warmUp(),
+    ]);
+
+    if (!mounted) return;
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (loginContext) => LoginPage(
+          onRegisterClicked: () {
+            Navigator.push(
+              loginContext,
+              MaterialPageRoute(
+                builder: (registerContext) => RegisterPage(
+                  onRegistered: () => Navigator.pop(registerContext),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
-      );
-    });
+      ),
+    );
   }
 
   @override
@@ -50,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> {
               height: 400,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
               ),
             ),
           ),
@@ -62,7 +71,7 @@ class _SplashScreenState extends State<SplashScreen> {
               height: 400,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -75,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   height: 120,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF10B981).withOpacity(0.2),
+                    color: const Color(0xFF10B981).withValues(alpha: 0.2),
                   ),
                   child: const Icon(
                     Icons.local_pharmacy_rounded,
@@ -107,7 +116,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   height: 60,
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.white.withOpacity(0.7),
+                      Colors.white.withValues(alpha: 0.7),
                     ),
                     strokeWidth: 4,
                   ),
