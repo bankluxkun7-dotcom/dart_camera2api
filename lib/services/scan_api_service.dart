@@ -1,8 +1,11 @@
-import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../screens/scan/scan_result_page.dart';
 
 Future<Map<String, dynamic>> sendImageToApi(File image) async {
@@ -11,101 +14,115 @@ Future<Map<String, dynamic>> sendImageToApi(File image) async {
   request.files.add(await http.MultipartFile.fromPath('file', image.path));
 
   final streamed = await request.send();
-  final resp = await http.Response.fromStream(streamed);
+  final response = await http.Response.fromStream(streamed);
 
-  if (resp.statusCode != 200) {
-    throw Exception('Upload failed: ${resp.statusCode}');
+  if (response.statusCode != 200) {
+    throw Exception('Upload failed: ${response.statusCode}');
   }
 
-  final Map<String, dynamic> body = json.decode(resp.body) as Map<String, dynamic>;
-  return body;
+  return json.decode(response.body) as Map<String, dynamic>;
 }
 
 List<double> _parseBbox(dynamic value) {
   final rawList = value is List ? value : const <dynamic>[];
-  final nums = rawList
-      .where((v) => v is num)
-      .map((v) => (v as num).toDouble())
+  final numbers = rawList
+      .whereType<num>()
+      .map((item) => item.toDouble())
       .toList();
-  if (nums.length >= 4) return nums.take(4).toList();
-  return [...nums, ...List<double>.filled(4 - nums.length, 0.0)];
+
+  if (numbers.length >= 4) return numbers.take(4).toList();
+  return [...numbers, ...List<double>.filled(4 - numbers.length, 0.0)];
 }
 
 Future<void> _saveResultsToFirestore(Map<String, dynamic> data) async {
   try {
-    final firestore = FirebaseFirestore.instance;
     final timestamp = DateTime.now().toUtc();
-    final timestampString = timestamp.toIso8601String();
-
-    await firestore
+    await FirebaseFirestore.instance
         .collection('results')
-        .doc(timestampString)
+        .doc(timestamp.toIso8601String())
         .set({
-          'timestamp': timestamp,
-          'data': data,
-        });
-  } catch (e) {
-    print('Error saving to Firestore: $e');
+      'timestamp': timestamp,
+      'data': data,
+    });
+  } catch (error) {
+    debugPrint('Error saving to Firestore: $error');
   }
+}
+
+List<dynamic> _extractDetections(Map<String, dynamic> body) {
+  return (body['detection_data']?['detections'] ?? []) as List<dynamic>;
+}
+
+List<String> _extractDetectedNames(
+  List<dynamic> detections,
+  TextEditingController nameController,
+) {
+  return detections
+      .map(
+        (detection) =>
+            (detection['class'] ?? nameController.text.trim()).toString(),
+      )
+      .toList();
+}
+
+List<List<double>> _extractDetectedBboxes(List<dynamic> detections) {
+  return detections.map((detection) => _parseBbox(detection['bbox'])).toList();
+}
+
+void _showSnackBar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
 }
 
 Future<void> sendImageAndShowResult({
   required BuildContext context,
   required File image,
   required TextEditingController nameController,
+  required bool autosave,
 }) async {
   try {
     final body = await sendImageToApi(image);
+    if (!context.mounted) return;
+    final status = body['status'] ?? '';
 
-    final String status = body['status'] ?? '';
-    if (status == 'success') {
-      final List detections = (body['detection_data']?['detections'] ?? []) as List;
-      if (detections.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ตรวจไม่พบยาในภาพ')),
-        );
-        return;
-      }
-
-      // เรียงลำดับการตรวจจับตามความมั่นใจจากมากไปน้อย
-      detections.sort((a, b) {
-        final na = (a['confidence'] ?? 0) as num;
-        final nb = (b['confidence'] ?? 0) as num;
-        return nb.compareTo(na);
-      });
-
-      // ดึงชื่อที่ตรวจจับได้
-      final List<String> detectedNames = detections
-          .map((d) => (d['class'] ?? nameController.text.trim()).toString())
-          .toList();
-
-      final List<List<double>> detectedBboxes = detections
-          .map((d) => _parseBbox(d['bbox']))
-          .toList();
-
-      await _saveResultsToFirestore(body);
-
-      if (context.mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ScanResultPage( //ถ้าจะทดสอบแสดงกรอบพร้อมชื่อยาให้แก้เป็น TestOverlay
-              imageFile: image,
-              detectedNames: detectedNames,
-              detectedBboxes: detectedBboxes,
-            ),
-          ),
-        );
-      }
-    } else {
+    if (status != 'success') {
       final detail = body['detail'] ?? json.encode(body);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Server error: $detail')),
-      );
+      _showSnackBar(context, 'Server error: $detail');
+      return;
     }
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('อัพโหลดผิดพลาด: $e')),
+
+    final detections = _extractDetections(body);
+    if (detections.isEmpty) {
+      _showSnackBar(context, 'ตรวจไม่พบยาในภาพ');
+      return;
+    }
+
+    detections.sort((a, b) {
+      final left = (a['confidence'] ?? 0) as num;
+      final right = (b['confidence'] ?? 0) as num;
+      return right.compareTo(left);
+    });
+
+    final detectedNames = _extractDetectedNames(detections, nameController);
+    final detectedBboxes = _extractDetectedBboxes(detections);
+
+    unawaited(_saveResultsToFirestore(body));
+
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ScanResultPage(
+          imageFile: image,
+          detectedNames: detectedNames,
+          detectedBboxes: detectedBboxes,
+          autosave: autosave,
+        ),
+      ),
     );
+  } catch (error) {
+    if (!context.mounted) return;
+    _showSnackBar(context, 'อัปโหลดผิดพลาด: $error');
   }
 }

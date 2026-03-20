@@ -9,7 +9,7 @@ class MedRepository {
   static const String excelAsset = 'assets/data/meds.xlsm';
   static const String imgDir = 'assets/images/amldac/';
 
-  List<MedItem>? _cache;
+  static List<MedItem>? _cache;
 
   /// แปลงชื่อเป็นชื่อไฟล์ฐาน: เว้นวรรค -> "_" อักขระต้องห้าม -> "_"
   String _fileBase(String name) {

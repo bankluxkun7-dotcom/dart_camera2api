@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/history_record.dart';
 
 /// การจัดการประวัติการสแกนด้วย SharedPreferences
 class HistoryStore {
   static const _key = 'scan_history';
+  static final ValueNotifier<int> changes = ValueNotifier<int>(0);
 
   /// โหลดบันทึกประวัติทั้งหมดจัดเรียงตามล่าสุดก่อน
   static Future<List<HistoryRecord>> load() async {
@@ -21,19 +23,23 @@ class HistoryStore {
   }
 
   /// เพิ่มบันทึกใหม่ลงในประวัติ
-  static Future<void> addRecord(List<String> items, {String? imagePath, List<String?>? cropImagePaths}) async {
+  static Future<void> addRecord(List<String> items,
+      {String? imagePath, List<String?>? cropImagePaths}) async {
     final prefs = await SharedPreferences.getInstance();
     final list = await load();
-    list.insert(0, HistoryRecord(
-      time: DateTime.now(),
-      items: items,
-      imagePath: imagePath,
-      cropImagePaths: cropImagePaths,
-    ));
+    list.insert(
+        0,
+        HistoryRecord(
+          time: DateTime.now(),
+          items: items,
+          imagePath: imagePath,
+          cropImagePaths: cropImagePaths,
+        ));
     await prefs.setString(
       _key,
       jsonEncode(list.map((e) => e.toJson()).toList()),
     );
+    changes.value++;
   }
 
   /// ลบบันทึกประวัติทั้งหมด
@@ -61,5 +67,6 @@ class HistoryStore {
       }
     }
     await prefs.remove(_key);
+    changes.value++;
   }
 }

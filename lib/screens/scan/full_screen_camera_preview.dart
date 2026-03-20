@@ -1,15 +1,21 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 const MethodChannel _cameraChannel = MethodChannel('dart_camera2api/camera');
 
 class FullScreenCameraPreview extends StatefulWidget {
+  const FullScreenCameraPreview({
+    required this.textureId,
+    super.key,
+  });
+
   final int textureId;
-  const FullScreenCameraPreview({required this.textureId, super.key});
 
   @override
-  State<FullScreenCameraPreview> createState() => _FullScreenCameraPreviewState();
+  State<FullScreenCameraPreview> createState() =>
+      _FullScreenCameraPreviewState();
 }
 
 class _FullScreenCameraPreviewState extends State<FullScreenCameraPreview> {
@@ -19,32 +25,88 @@ class _FullScreenCameraPreviewState extends State<FullScreenCameraPreview> {
   double _focusOpacity = 0.0;
   Timer? _focusTimer;
 
+  Future<void> _closeCamera() async {
+    try {
+      await _cameraChannel.invokeMethod('close');
+    } catch (_) {}
+  }
+
   Future<void> _capture() async {
     if (_isCapturing) return;
+
     setState(() => _isCapturing = true);
     try {
       final path = await _cameraChannel.invokeMethod<String>('takePicture');
-      await _cameraChannel.invokeMethod('close');
+      await _closeCamera();
       if (!mounted) return;
       Navigator.of(context).pop<String?>(path);
-    } catch (e) {
+    } catch (error) {
+      await _closeCamera();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Capture failed: $e')),
+        SnackBar(content: Text('Capture failed: $error')),
       );
-      try {
-        await _cameraChannel.invokeMethod('close');
-      } catch (_) {}
-      if (!mounted) return;
       Navigator.of(context).pop<String?>(null);
     }
   }
 
-  Future<bool> _onWillPop() async {
+  Future<void> _focusAt(TapDownDetails details, BoxConstraints constraints) async {
+    final dx = details.localPosition.dx;
+    final dy = details.localPosition.dy;
+    final width = constraints.maxWidth;
+    final height = constraints.maxHeight;
+    final normalizedX = (dx / width).clamp(0.0, 1.0);
+    final normalizedY = (dy / height).clamp(0.0, 1.0);
+
     try {
-      await _cameraChannel.invokeMethod('close');
-    } catch (_) {}
-    return true;
+      await _cameraChannel.invokeMethod('focusAt', {
+        'x': normalizedX,
+        'y': normalizedY,
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Focus failed: $error')),
+      );
+    }
+
+    _focusTimer?.cancel();
+    if (!mounted) return;
+    setState(() {
+      _focusPoint = details.localPosition;
+      _focusOpacity = 1.0;
+    });
+    _focusTimer = Timer(
+      const Duration(milliseconds: 700),
+      () {
+        if (!mounted) return;
+        setState(() => _focusOpacity = 0.0);
+      },
+    );
+  }
+
+  Future<void> _toggleFlash() async {
+    try {
+      final success = await _cameraChannel.invokeMethod<bool>(
+        'setFlash',
+        !_flashOn,
+      );
+      if (!mounted) return;
+      if (success == true) {
+        setState(() => _flashOn = !_flashOn);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Flash toggle failed: $error')),
+      );
+    }
+  }
+
+  Future<void> _closePreview() async {
+    await _closeCamera();
+    if (!mounted) return;
+    Navigator.of(context).pop<String?>(null);
   }
 
   @override
@@ -55,8 +117,10 @@ class _FullScreenCameraPreviewState extends State<FullScreenCameraPreview> {
 
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: _onWillPop,
+    return PopScope(
+      onPopInvokedWithResult: (_, __) async {
+        await _closeCamera();
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: Stack(
@@ -66,34 +130,8 @@ class _FullScreenCameraPreviewState extends State<FullScreenCameraPreview> {
                 builder: (context, constraints) {
                   return GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTapDown: (details) async {
-                      final dx = details.localPosition.dx;
-                      final dy = details.localPosition.dy;
-                      final w = constraints.maxWidth;
-                      final h = constraints.maxHeight;
-                      final nx = (dx / w).clamp(0.0, 1.0);
-                      final ny = (dy / h).clamp(0.0, 1.0);
-                      try {
-                        await _cameraChannel.invokeMethod('focusAt', {'x': nx, 'y': ny});
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Focus failed: $e')),
-                          );
-                        }
-                      }
-
-                      _focusTimer?.cancel();
-                      setState(() {
-                        _focusPoint = details.localPosition;
-                        _focusOpacity = 1.0;
-                      });
-                      _focusTimer = Timer(
-                        const Duration(milliseconds: 700),
-                        () => setState(() => _focusOpacity = 0.0),
-                      );
-                    },
-                    child: Texture(textureId: widget.textureId.toInt()),
+                    onTapDown: (details) => _focusAt(details, constraints),
+                    child: Texture(textureId: widget.textureId),
                   );
                 },
               ),
@@ -121,12 +159,7 @@ class _FullScreenCameraPreviewState extends State<FullScreenCameraPreview> {
               child: IconButton(
                 color: Colors.white,
                 icon: const Icon(Icons.close),
-                onPressed: () async {
-                  try {
-                    await _cameraChannel.invokeMethod('close');
-                  } catch (_) {}
-                  if (mounted) Navigator.of(context).pop<String?>(null);
-                },
+                onPressed: _closePreview,
               ),
             ),
             Positioned(
@@ -135,18 +168,7 @@ class _FullScreenCameraPreviewState extends State<FullScreenCameraPreview> {
               child: IconButton(
                 color: Colors.white,
                 icon: Icon(_flashOn ? Icons.flash_on : Icons.flash_off),
-                onPressed: () async {
-                  try {
-                    final ok = await _cameraChannel.invokeMethod<bool>('setFlash', !_flashOn);
-                    if (!mounted) return;
-                    if (ok == true) setState(() => _flashOn = !_flashOn);
-                  } catch (e) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Flash toggle failed: $e')),
-                    );
-                  }
-                },
+                onPressed: _toggleFlash,
               ),
             ),
             Positioned(

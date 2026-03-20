@@ -1,4 +1,3 @@
-/// โมเดลรายการยา
 class MedItem {
   final String name;        // ชื่อยาความดันโลหิตสูง(ยี่ห้อยา_ชื่อยา)
   final String description; // สรรพคุณ
